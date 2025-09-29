@@ -27,20 +27,6 @@ type ErlPortSettings {
   Binary
 }
 
-@external(erlang, "mcp_ffi", "port_open")
-fn port_open(
-  name: PortName,
-  settings: List(ErlPortSettings),
-) -> Result(Port, McpError)
-
-@external(erlang, "mcp_ffi", "port_close")
-fn port_close(port: Port) -> Result(Bool, McpError)
-
-pub fn close_port(port: Port) -> Result(Bool, McpError) {
-  use res <- result.try(port_close(port))
-  Ok(res)
-}
-
 /// Return a Port to communicate with the MCP Server
 /// 
 /// If a server name is empty, the program will panic
@@ -51,3 +37,24 @@ pub fn open_port(command: String) -> Result(Port, McpError) {
   use res <- result.try(port_open(Spawn(command), port_settings))
   Ok(res)
 }
+
+@external(erlang, "mcp_ffi", "port_open")
+fn port_open(
+  name: PortName,
+  settings: List(ErlPortSettings),
+) -> Result(Port, McpError)
+
+pub fn close_port(port: Port) -> Result(Nil, McpError) {
+  use res <- result.try(port_close(port))
+  Ok(res)
+}
+
+@external(erlang, "mcp_ffi", "port_close")
+fn port_close(port: Port) -> Result(Nil, McpError)
+
+pub fn send(port: Port, data: BitArray) -> Result(Nil, McpError) {
+  port_send(port, data)
+}
+
+@external(erlang, "mcp_ffi", "port_send")
+fn port_send(port: Port, data: BitArray) -> Result(Nil, McpError)
