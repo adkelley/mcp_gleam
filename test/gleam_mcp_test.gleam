@@ -14,33 +14,17 @@ pub fn stdio_open_close_test() {
     transport.stdio_config()
     |> transport.stdio_command("/opt/homebrew/bin/npx")
     |> transport.stdio_args(["-y", "@modelcontextprotocol/server-everything"])
-  let assert Ok(port) = transport.stdio_connect(config)
-  let assert Ok(Nil) = transport.stdio_disconnect(port)
+  let assert Ok(port) = transport.connect(config)
+  let assert Ok(Nil) = transport.disconnect(port)
 }
 
-// Payload =
-//     new_request(Id,
-//                 <<"tools/call">>,
-//                 #{<<"name">> => <<"echo">>,
-//                   <<"arguments">> => #{<<"message">> => <<"hello echo!">>}}),
-// Transport:send(Conn, Payload),
-// {noreply, State#state{pending = P#{Id => From}}};
-//
-// Payload =
-//     new_request(Id,
-//                 <<"initialize">>,
-//                 #{<<"protocolVersion">> => <<"2025-03-26">>,
-//                   <<"capabilities">> => #{},
-//                   <<"clientInfo">> =>
-//                       #{<<"name">> => <<"Example Client">>, <<"version">> => <<"1.0.0">>}}),
-// 
-
-pub fn stdio_notification_test() {
+pub fn stdio_call_tool_test() {
   let config =
     transport.stdio_config()
-    |> transport.stdio_command("/opt/homebrew/bin/npx")
+    |> transport.stdio_command("npx")
+    |> transport.stdio_cwd("/opt/homebrew/bin/")
     |> transport.stdio_args(["-y", "@modelcontextprotocol/server-everything"])
-  let assert Ok(port) = transport.stdio_connect(config)
+  let assert Ok(port) = transport.connect(config)
 
   let mapper = transport.response_mapper()
   let selector = process.new_selector() |> transport.select_response(mapper)
@@ -51,17 +35,23 @@ pub fn stdio_notification_test() {
   let message = process.selector_receive_forever(selector)
   echo message
 
-  let client = client.new_client("stdio_notification", "0.1.0")
-  let jsonrpc_request =
-    client.initialize(client, types.latest_protocol_version, dict.new())
-  let assert Ok(Nil) = transport.send(port, jsonrpc_request)
+  let assert Ok(Nil) =
+    client.new_client("stdio_notification", "0.1.0")
+    |> client.initialize(types.latest_protocol_version, dict.new())
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
 
-  let message = process.selector_receive_forever(selector)
-  echo message
+  let assert Ok(Nil) = client.initialized() |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
 
-  // let assert Ok(message) = process.selector_receive(selector, 5000)
-  // echo message
-  // process.sleep(5000)
+  let assert Ok(Nil) = client.list_tools() |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
 
-  let assert Ok(Nil) = transport.stdio_disconnect(port)
+  let assert Ok(Nil) =
+    client.call_tool("echo")
+    |> client.append_argument("message", types.JsonString("Hello Live Coding"))
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  let assert Ok(Nil) = transport.disconnect(port)
 }

@@ -16,12 +16,7 @@ pub type JsonData {
 pub type Params =
   Dict(String, JsonData)
 
-pub type Request {
-
-  Request(method: String, params: Params)
-}
-
-pub type Notification {
-
+pub type Message {
   Notification(method: String, params: Params)
+  Request(method: String, params: Params)
 }

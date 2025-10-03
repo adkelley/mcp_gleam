@@ -5,52 +5,69 @@ import gleam/erlang/reference.{type Reference}
 import gleam/list
 import gleam/option.{type Option}
 import gleam/result
-import gleam/string
+
 import mcp/error.{type McpError}
+import mcp/transport/jsonrpc
 import mcp/transport/stdio
+import mcp/types
 
 pub opaque type TransportHandle {
   /// Stdio
   Port(Port)
-  /// SSE
   RequestId(Reference)
 }
 
+/// SSE
 pub type TransportResponse {
   StdioResponse(Port, BitArray)
-  StdioExitResponse(Port)
-  StdioOtherResponse
+  StdioExit(Port)
+  StdioOther
 }
 
-pub opaque type StdioTransportConfig {
-  Builder(command: String, args: List(String), cwd: Option(String))
+pub opaque type TransportConfig {
+  StdioBuilder(command: String, args: List(String), cwd: Option(String))
+  SSEBuilder(uri: String)
 }
 
-pub fn stdio_config() -> StdioTransportConfig {
-  Builder(command: "", args: [], cwd: option.None)
+pub fn stdio_config() -> TransportConfig {
+  StdioBuilder(command: "", args: [], cwd: option.None)
 }
 
-pub fn stdio_command(
-  config: StdioTransportConfig,
-  which: String,
-) -> StdioTransportConfig {
-  Builder(..config, command: which)
+pub fn sse_config() -> TransportConfig {
+  SSEBuilder(uri: "")
+}
+
+pub fn stdio_command(config: TransportConfig, which: String) -> TransportConfig {
+  let assert StdioBuilder(_, _, _) = config
+    as "Error: Use transport.sse_uri() for SSE servers"
+  StdioBuilder(..config, command: which)
 }
 
 pub fn stdio_args(
-  config: StdioTransportConfig,
+  config: TransportConfig,
   which: List(String),
-) -> StdioTransportConfig {
-  Builder(..config, args: which)
+) -> TransportConfig {
+  let assert StdioBuilder(_, _, _) = config
+    as "Error: Use transport.sse_uri() for SSE servers"
+  StdioBuilder(..config, args: which)
 }
 
-pub fn stdio_connect(
-  config: StdioTransportConfig,
-) -> Result(TransportHandle, McpError) {
-  let assert False = string.is_empty(config.command)
-    as "Server command cannot be empty"
+pub fn stdio_cwd(config: TransportConfig, which: String) -> TransportConfig {
+  let assert StdioBuilder(_, _, _) = config
+    as "Error: Use transport.sse_uri() for SSE servers"
+  StdioBuilder(..config, cwd: option.Some(which))
+}
+
+// TODO Shall we run initialize & initilized here?
+pub fn connect(config: TransportConfig) -> Result(TransportHandle, McpError) {
+  let assert StdioBuilder(_, _, _) = config
+    as "Error: SSE transport is currently unsupported "
   let command =
-    config.command
+    case config.cwd {
+      option.Some(cwd) -> cwd
+      option.None -> ""
+    }
+    <> config.command
     <> list.fold(config.args, "", fn(acc, arg) { acc <> " " <> arg })
   use port <- result.try(
     stdio.open_port(command)
@@ -64,17 +81,24 @@ pub fn stdio_connect(
   Ok(port)
 }
 
-pub fn stdio_disconnect(handle: TransportHandle) -> Result(Nil, McpError) {
+pub fn disconnect(handle: TransportHandle) -> Result(Nil, McpError) {
   let assert Port(port) = handle as "Server handle must be stdio"
   stdio.close_port(port)
 }
 
-/// Send a message to the MCP server
-pub fn send(handle: TransportHandle, message: BitArray) -> Result(Nil, McpError) {
-  case handle {
-    Port(port) -> stdio.send(port, message)
-    RequestId(_) -> Error(error.UnSupportedOption)
+/// Send a jsonrpc message to the MCP server
+pub fn send(
+  handle: TransportHandle,
+  message: types.Message,
+) -> Result(Nil, McpError) {
+  let assert Port(port) = handle
+    as "Error: SSE transport is currently unsupported "
+
+  case message {
+    types.Request(_method, _params) -> jsonrpc.request(message)
+    types.Notification(_method, _params) -> jsonrpc.notification(message)
   }
+  |> stdio.send(port, _)
 }
 
 @external(erlang, "mcp_ffi", "coerce_message")
