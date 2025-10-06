@@ -22,9 +22,9 @@ port_send(Port, Data) ->
     _ -> {error, other}
   end.
 
-coerce_message({Port, {data, Chunk}}) -> {stdio_response, {Port, Chunk}};
-coerce_message({Port, {exit_status, _}}) -> {stdio_exit, Port};
-coerce_message(Other) -> io:format("unexpected: ~p~n", [Other]), {stdio_other}.
+coerce_message({Port, {data, Chunk}}) -> {raw_stdio_response, {Port, Chunk}};
+coerce_message({Port, {exit_status, _}}) -> {raw_stdio_exit, Port};
+coerce_message(Other) -> io:format("unexpected: ~p~n", [Other]), {raw_stdio_other}.
 
 
 %% SSE

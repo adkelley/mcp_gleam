@@ -11,12 +11,18 @@ pub type JsonData {
   JsonObject(Params)
   JsonString(String)
   JsonInt(Int)
+  JsonBool(Bool)
+  JsonNil(Nil)
+  JsonArray(List(Params))
 }
 
 pub type Params =
   Dict(String, JsonData)
 
-pub type Message {
+// TODO separate these into individual records?
+pub type ClientMessage {
   Notification(method: String, params: Params)
   Request(method: String, params: Params)
+  // Note method is not used here, purely for uniformity
+  Response(method: Nil, id: Int, params: Params)
 }

@@ -1,3 +1,4 @@
+import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/port.{type Port}
 import gleam/erlang/process
@@ -18,8 +19,14 @@ pub opaque type TransportHandle {
 }
 
 /// SSE
+pub type RawTransportResponse {
+  RawStdioResponse(#(Port, BitArray))
+  RawStdioExit(Port)
+  RawStdioOther
+}
+
 pub type TransportResponse {
-  StdioResponse(Port, BitArray)
+  StdioResponse(Port, String)
   StdioExit(Port)
   StdioOther
 }
@@ -89,7 +96,7 @@ pub fn disconnect(handle: TransportHandle) -> Result(Nil, McpError) {
 /// Send a jsonrpc message to the MCP server
 pub fn send(
   handle: TransportHandle,
-  message: types.Message,
+  message: types.ClientMessage,
 ) -> Result(Nil, McpError) {
   let assert Port(port) = handle
     as "Error: SSE transport is currently unsupported "
@@ -97,20 +104,30 @@ pub fn send(
   case message {
     types.Request(_method, _params) -> jsonrpc.request(message)
     types.Notification(_method, _params) -> jsonrpc.notification(message)
+    types.Response(_method, _id, _params) -> jsonrpc.response(message)
   }
   |> stdio.send(port, _)
 }
 
 @external(erlang, "mcp_ffi", "coerce_message")
-fn decode_stream_message(msg: Dynamic) -> TransportResponse
+fn decode_stream_message(msg: Dynamic) -> RawTransportResponse
 
-pub fn response_mapper() -> fn(TransportResponse) -> TransportResponse {
-  fn(msg: TransportResponse) { msg }
+pub fn response_mapper() -> fn(RawTransportResponse) -> TransportResponse {
+  fn(msg: RawTransportResponse) {
+    case msg {
+      RawStdioResponse(#(port, payload)) -> {
+        let assert Ok(payload_) = bit_array.to_string(payload)
+        StdioResponse(port, payload_)
+      }
+      RawStdioExit(port) -> StdioExit(port)
+      RawStdioOther -> StdioOther
+    }
+  }
 }
 
 pub fn select_response(
   selector: process.Selector(t),
-  mapper: fn(TransportResponse) -> t,
+  mapper: fn(RawTransportResponse) -> t,
 ) -> process.Selector(t) {
   let map_stream_message = fn(mapper) {
     fn(message) { mapper(decode_stream_message(message)) }

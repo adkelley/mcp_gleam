@@ -1,5 +1,6 @@
-import gleam/dict
+import gleam/dynamic/decode
 import gleam/erlang/process
+import gleam/json
 import gleeunit
 import mcp/client
 import mcp/transport
@@ -12,13 +13,14 @@ pub fn main() -> Nil {
 pub fn stdio_open_close_test() {
   let config =
     transport.stdio_config()
-    |> transport.stdio_command("/opt/homebrew/bin/npx")
+    |> transport.stdio_command("npx")
+    |> transport.stdio_cwd("/opt/homebrew/bin/")
     |> transport.stdio_args(["-y", "@modelcontextprotocol/server-everything"])
   let assert Ok(port) = transport.connect(config)
   let assert Ok(Nil) = transport.disconnect(port)
 }
 
-pub fn stdio_call_tool_test() {
+pub fn stdio_echo_tool_test() {
   let config =
     transport.stdio_config()
     |> transport.stdio_command("npx")
@@ -29,15 +31,17 @@ pub fn stdio_call_tool_test() {
   let mapper = transport.response_mapper()
   let selector = process.new_selector() |> transport.select_response(mapper)
 
+  // Starting server
   let message = process.selector_receive_forever(selector)
   echo message
 
+  // Logs
   let message = process.selector_receive_forever(selector)
   echo message
 
   let assert Ok(Nil) =
-    client.new_client("stdio_notification", "0.1.0")
-    |> client.initialize(types.latest_protocol_version, dict.new())
+    client.configuration("stdio_call_tools", "0.1.0")
+    |> client.initialize()
     |> transport.send(port, _)
   echo process.selector_receive_forever(selector)
 
@@ -52,6 +56,93 @@ pub fn stdio_call_tool_test() {
     |> client.append_argument("message", types.JsonString("Hello Live Coding"))
     |> transport.send(port, _)
   echo process.selector_receive_forever(selector)
+
+  let assert Ok(Nil) = transport.disconnect(port)
+}
+
+pub fn stdio_add_tool_test() {
+  let config =
+    transport.stdio_config()
+    |> transport.stdio_command("npx")
+    |> transport.stdio_cwd("/opt/homebrew/bin/")
+    |> transport.stdio_args(["-y", "@modelcontextprotocol/server-everything"])
+  let assert Ok(port) = transport.connect(config)
+
+  let mapper = transport.response_mapper()
+  let selector = process.new_selector() |> transport.select_response(mapper)
+
+  // Starting server
+  let message = process.selector_receive_forever(selector)
+  echo message
+
+  // Logs
+  let message = process.selector_receive_forever(selector)
+  echo message
+
+  let assert Ok(Nil) =
+    client.configuration("stdio_call_tools", "0.1.0")
+    |> client.initialize()
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  let assert Ok(Nil) = client.initialized() |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  let assert Ok(Nil) =
+    client.call_tool("add")
+    |> client.append_argument("a", types.JsonInt(35))
+    |> client.append_argument("b", types.JsonInt(34))
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  let assert Ok(Nil) = transport.disconnect(port)
+}
+
+pub fn stdio_capabilities_test() {
+  let config =
+    transport.stdio_config()
+    |> transport.stdio_command("npx")
+    |> transport.stdio_cwd("/opt/homebrew/bin/")
+    |> transport.stdio_args(["-y", "@modelcontextprotocol/server-everything"])
+  let assert Ok(port) = transport.connect(config)
+
+  let mapper = transport.response_mapper()
+  let selector = process.new_selector() |> transport.select_response(mapper)
+
+  // Starting server
+  let message = process.selector_receive_forever(selector)
+  echo message
+
+  // Logs
+  let message = process.selector_receive_forever(selector)
+  echo message
+
+  let assert Ok(Nil) =
+    client.configuration("stdio_call_tools", "0.1.0")
+    |> client.roots(True)
+    |> client.sampling()
+    |> client.initialize()
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  // Server sends a `roots/list` request
+  let assert Ok(Nil) = client.initialized() |> transport.send(port, _)
+  let assert transport.StdioResponse(_port, payload) =
+    process.selector_receive_forever(selector)
+
+  let decoder = fn() {
+    use method <- decode.field("method", decode.string)
+    use id <- decode.field("id", decode.int)
+    decode.success(#(method, id))
+  }
+  let assert Ok(#(_method, id)) = json.parse(payload, decoder())
+  let roots = [#("uri", "file:///cores/my_project"), #("name", "My Project")]
+  let assert Ok(Nil) =
+    client.list_roots(id, roots)
+    |> transport.send(port, _)
+  echo process.selector_receive_forever(selector)
+
+  // Sampling test
 
   let assert Ok(Nil) = transport.disconnect(port)
 }
