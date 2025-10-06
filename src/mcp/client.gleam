@@ -1,5 +1,6 @@
 import gleam/dict
 import gleam/list
+import gleam/string
 import mcp/types
 
 pub opaque type Client {
@@ -40,8 +41,13 @@ pub fn sampling(client: Client) -> Client {
   Builder(..client, capabilities: dict.merge(client.capabilities, sampling))
 }
 
-pub fn append_argument(
+pub fn new_request(method: String) -> types.ClientMessage {
+  types.Request(method: method, params: dict.new())
+}
+
+pub fn append_object(
   message: types.ClientMessage,
+  parent_key: String,
   key: String,
   value: types.JsonData,
 ) -> types.ClientMessage {
@@ -49,29 +55,38 @@ pub fn append_argument(
     types.Request(method, params) ->
       types.Request(
         method,
-        params: merge_params(params, "arguments", key, value),
+        params: merge_objects(params, parent_key, key, value),
       )
     types.Notification(method, params) ->
       types.Notification(
         method,
-        params: merge_params(params, "arguments", key, value),
+        params: merge_objects(params, parent_key, key, value),
       )
     types.Response(method, id, params) ->
-      types.Response(method, id, merge_params(params, "result", key, value))
+      types.Response(method, id, merge_objects(params, parent_key, key, value))
   }
 }
 
-fn merge_params(
+fn merge_objects(
   params: types.Params,
   parent_key: String,
   key: String,
   value: types.JsonData,
 ) -> types.Params {
-  let assert Ok(types.JsonObject(obj)) = dict.get(params, parent_key)
-    as "Error: arguments object is missing, aborting append_argument"
-  dict.new()
-  |> dict.insert(parent_key, types.JsonObject(dict.insert(obj, key, value)))
-  |> dict.merge(params, _)
+  case dict.get(params, parent_key) {
+    Ok(types.JsonObject(obj)) -> {
+      dict.new()
+      |> dict.insert(parent_key, types.JsonObject(dict.insert(obj, key, value)))
+      |> dict.merge(params, _)
+    }
+    Error(_) -> dict.new() |> dict.insert(key, value)
+    _ -> panic
+  }
+  // let assert Ok(types.JsonObject(obj)) = dict.get(params, parent_key)
+  //   as "Error: arguments object is missing, aborting append_argument"
+  // dict.new()
+  // |> dict.insert(parent_key, types.JsonObject(dict.insert(obj, key, value)))
+  // |> dict.merge(params, _)
 }
 
 pub fn initialize(client client: Client) -> types.ClientMessage {
@@ -123,4 +138,28 @@ pub fn list_roots(
       ]),
     )
   types.Response(method: Nil, id: id, params: roots)
+}
+
+pub fn list_resources(cursor_value: String) -> types.ClientMessage {
+  let params = case string.is_empty(cursor_value) {
+    False ->
+      dict.new()
+      |> dict.insert("cursor", types.JsonString(cursor_value))
+    True -> dict.new()
+  }
+  types.Request(method: "resources/list", params: params)
+}
+
+pub fn read_resources(uri: String) -> types.ClientMessage {
+  let params = dict.new() |> dict.insert("uri", types.JsonString(uri))
+  types.Request(method: "resources/read", params: params)
+}
+
+pub fn subscribe_resources(uri: String) -> types.ClientMessage {
+  let params = dict.new() |> dict.insert("uri", types.JsonString(uri))
+  types.Request(method: "resources/subscribe", params: params)
+}
+
+pub fn list_resources_templates() -> types.ClientMessage {
+  types.Request(method: "resources/templates/list", params: dict.new())
 }

@@ -15,6 +15,7 @@ pub fn request(request: types.ClientMessage) -> types.JsonRpc {
   ])
   |> json.to_string
   |> string.append("\n")
+  |> echo
   |> bit_array.from_string
 }
 
