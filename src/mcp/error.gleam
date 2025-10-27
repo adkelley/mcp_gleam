@@ -1,3 +1,4 @@
+/// High level error categories emitted by the MCP client wrappers.
 pub type McpError {
   Badarg
   Other

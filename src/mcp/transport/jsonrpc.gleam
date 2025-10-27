@@ -5,6 +5,7 @@ import gleam/list
 import gleam/string
 import mcp/types
 
+/// Encode a JSON-RPC request message from a client message.
 pub fn request(request: types.ClientMessage) -> types.JsonRpc {
   let assert types.Request(method, params) = request
   json.object([
@@ -20,8 +21,10 @@ pub fn request(request: types.ClientMessage) -> types.JsonRpc {
 }
 
 @external(erlang, "mcp_ffi", "request_id")
+// FFI helper returning the next JSON-RPC request identifier.
 fn request_id() -> Int
 
+/// Encode a JSON-RPC notification message from a client message.
 pub fn notification(notification: types.ClientMessage) -> types.JsonRpc {
   let assert types.Notification(method, params) = notification
   json.object([
@@ -34,6 +37,7 @@ pub fn notification(notification: types.ClientMessage) -> types.JsonRpc {
   |> bit_array.from_string
 }
 
+/// Encode a JSON-RPC response message from a client message.
 pub fn response(response: types.ClientMessage) -> types.JsonRpc {
   let assert types.Response(_method, id, params) = response
   json.object([
@@ -46,6 +50,7 @@ pub fn response(response: types.ClientMessage) -> types.JsonRpc {
   |> bit_array.from_string
 }
 
+// Convert typed parameters to their JSON representation.
 fn json_params(params: types.Params) -> Json {
   json.object(
     list.map(dict.to_list(params), fn(x) {

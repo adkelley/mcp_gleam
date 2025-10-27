@@ -12,44 +12,52 @@ import mcp/transport/jsonrpc
 import mcp/transport/stdio
 import mcp/types
 
+/// Handle for an established connection to an MCP transport.
 pub opaque type TransportHandle {
-  /// Stdio
+  /// Connection backed by a stdio `Port`.
   Port(Port)
+  /// Unique reference used when generating request identifiers.
   RequestId(Reference)
 }
 
-/// SSE
+/// Raw transport payloads emitted from the underlying Erlang port.
 pub type RawTransportResponse {
   RawStdioResponse(#(Port, BitArray))
   RawStdioExit(Port)
   RawStdioOther
 }
 
+/// Transport responses decoded into friendly data structures.
 pub type TransportResponse {
   StdioResponse(Port, String)
   StdioExit(Port)
   StdioOther
 }
 
+/// Configuration builder for opening transport connections.
 pub opaque type TransportConfig {
   StdioBuilder(command: String, args: List(String), cwd: Option(String))
   SSEBuilder(uri: String)
 }
 
+/// Begin constructing a stdio transport configuration.
 pub fn stdio_config() -> TransportConfig {
   StdioBuilder(command: "", args: [], cwd: option.None)
 }
 
+/// Begin constructing an SSE transport configuration.
 pub fn sse_config() -> TransportConfig {
   SSEBuilder(uri: "")
 }
 
+/// Set the command used to spawn an MCP server for stdio transports.
 pub fn stdio_command(config: TransportConfig, which: String) -> TransportConfig {
   let assert StdioBuilder(_, _, _) = config
     as "Error: Use transport.sse_uri() for SSE servers"
   StdioBuilder(..config, command: which)
 }
 
+/// Set the command-line arguments for a stdio transport.
 pub fn stdio_args(
   config: TransportConfig,
   which: List(String),
@@ -59,6 +67,7 @@ pub fn stdio_args(
   StdioBuilder(..config, args: which)
 }
 
+/// Set the working directory for a stdio transport.
 pub fn stdio_cwd(config: TransportConfig, which: String) -> TransportConfig {
   let assert StdioBuilder(_, _, _) = config
     as "Error: Use transport.sse_uri() for SSE servers"
@@ -66,6 +75,7 @@ pub fn stdio_cwd(config: TransportConfig, which: String) -> TransportConfig {
 }
 
 // TODO Shall we run initialize & initilized here?
+/// Open a transport connection using the provided configuration.
 pub fn connect(config: TransportConfig) -> Result(TransportHandle, McpError) {
   let assert StdioBuilder(_, _, _) = config
     as "Error: SSE transport is currently unsupported "
@@ -88,12 +98,13 @@ pub fn connect(config: TransportConfig) -> Result(TransportHandle, McpError) {
   Ok(port)
 }
 
+/// Terminate an active transport connection.
 pub fn disconnect(handle: TransportHandle) -> Result(Nil, McpError) {
   let assert Port(port) = handle as "Server handle must be stdio"
   stdio.close_port(port)
 }
 
-/// Send a jsonrpc message to the MCP server
+/// Send a JSON-RPC message to the MCP server over the transport.
 pub fn send(
   handle: TransportHandle,
   message: types.ClientMessage,
@@ -110,8 +121,10 @@ pub fn send(
 }
 
 @external(erlang, "mcp_ffi", "coerce_message")
+// FFI helper converting raw port messages into transport responses.
 fn decode_stream_message(msg: Dynamic) -> RawTransportResponse
 
+/// Build a mapper that converts raw responses into structured transport responses.
 pub fn response_mapper() -> fn(RawTransportResponse) -> TransportResponse {
   fn(msg: RawTransportResponse) {
     case msg {
@@ -125,6 +138,7 @@ pub fn response_mapper() -> fn(RawTransportResponse) -> TransportResponse {
   }
 }
 
+/// Attach a transport response mapper onto a process selector.
 pub fn select_response(
   selector: process.Selector(t),
   mapper: fn(RawTransportResponse) -> t,

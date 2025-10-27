@@ -3,6 +3,7 @@ import gleam/list
 import gleam/string
 import mcp/types
 
+/// Builder for composing the high-level MCP client configuration.
 pub opaque type Client {
   Builder(
     name: String,
@@ -12,8 +13,7 @@ pub opaque type Client {
   )
 }
 
-/// Default client configuration
-/// 
+/// Create a client configuration using the latest supported protocol version.
 pub fn configuration(name: String, version: String) -> Client {
   Builder(
     name: name,
@@ -23,6 +23,7 @@ pub fn configuration(name: String, version: String) -> Client {
   )
 }
 
+/// Enable or disable root listing capability advertising.
 pub fn roots(client: Client, list_changed: Bool) -> Client {
   let roots =
     dict.new()
@@ -35,16 +36,19 @@ pub fn roots(client: Client, list_changed: Bool) -> Client {
   Builder(..client, capabilities: dict.merge(client.capabilities, roots))
 }
 
+/// Enable empty sampling capabilities on the client.
 pub fn sampling(client: Client) -> Client {
   let sampling =
     dict.new() |> dict.insert("sampling", types.JsonObject(dict.new()))
   Builder(..client, capabilities: dict.merge(client.capabilities, sampling))
 }
 
+/// Start composing a request with the provided method name.
 pub fn new_request(method: String) -> types.ClientMessage {
   types.Request(method: method, params: dict.new())
 }
 
+/// Add a new key/value pair inside a nested object in the provided message.
 pub fn append_object(
   message: types.ClientMessage,
   parent_key: String,
@@ -67,6 +71,7 @@ pub fn append_object(
   }
 }
 
+// Merge two object maps, creating the parent if one does not exist.
 fn merge_objects(
   params: types.Params,
   parent_key: String,
@@ -89,6 +94,7 @@ fn merge_objects(
   // |> dict.merge(params, _)
 }
 
+/// Construct an `initialize` request for the MCP handshake.
 pub fn initialize(client client: Client) -> types.ClientMessage {
   let method = "initialize"
   let client_info =
@@ -105,15 +111,18 @@ pub fn initialize(client client: Client) -> types.ClientMessage {
   types.Request(method: method, params: params)
 }
 
+/// Construct the `notifications/initialized` event.
 pub fn initialized() -> types.ClientMessage {
   types.Notification("notifications/initialized", dict.new())
 }
 
+/// Build a request for the tool listing endpoint.
 pub fn list_tools() -> types.ClientMessage {
   let params = dict.new() |> dict.insert("params", types.JsonObject(dict.new()))
   types.Request(method: "tools/list", params: params)
 }
 
+/// Build a request to invoke a specific tool by name.
 pub fn call_tool(tool_name: String) -> types.ClientMessage {
   let method = "tools/call"
   let params =
@@ -123,6 +132,7 @@ pub fn call_tool(tool_name: String) -> types.ClientMessage {
   types.Request(method: method, params: params)
 }
 
+/// Create a response to the server with the available roots.
 pub fn list_roots(
   id: Int,
   roots: List(#(String, String)),
@@ -140,6 +150,7 @@ pub fn list_roots(
   types.Response(method: Nil, id: id, params: roots)
 }
 
+/// Request a paginated list of resources from the server.
 pub fn list_resources(cursor_value: String) -> types.ClientMessage {
   let params = case string.is_empty(cursor_value) {
     False ->
@@ -150,16 +161,19 @@ pub fn list_resources(cursor_value: String) -> types.ClientMessage {
   types.Request(method: "resources/list", params: params)
 }
 
+/// Request the contents of a specific resource.
 pub fn read_resources(uri: String) -> types.ClientMessage {
   let params = dict.new() |> dict.insert("uri", types.JsonString(uri))
   types.Request(method: "resources/read", params: params)
 }
 
+/// Subscribe to updates for a specific resource URI.
 pub fn subscribe_resources(uri: String) -> types.ClientMessage {
   let params = dict.new() |> dict.insert("uri", types.JsonString(uri))
   types.Request(method: "resources/subscribe", params: params)
 }
 
+/// Request the list of available resource templates.
 pub fn list_resources_templates() -> types.ClientMessage {
   types.Request(method: "resources/templates/list", params: dict.new())
 }
