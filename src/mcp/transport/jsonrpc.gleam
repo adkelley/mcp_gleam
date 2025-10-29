@@ -16,12 +16,11 @@ pub fn request(request: types.ClientMessage) -> types.JsonRpc {
   ])
   |> json.to_string
   |> string.append("\n")
-  |> echo
   |> bit_array.from_string
 }
 
-@external(erlang, "mcp_ffi", "request_id")
 // FFI helper returning the next JSON-RPC request identifier.
+@external(erlang, "mcp_ffi", "request_id")
 fn request_id() -> Int
 
 /// Encode a JSON-RPC notification message from a client message.
