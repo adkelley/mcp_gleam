@@ -1,7 +1,13 @@
-import gleam/dict
+import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
 import gleam/list
+import gleam/option.{type Option}
 import gleam/string
 import mcp/types
+
+pub type Meta {
+  Meta(Dict(String, Dynamic))
+}
 
 /// Builder for composing the high-level MCP client configuration.
 pub opaque type Client {
@@ -23,7 +29,7 @@ pub fn configuration(name: String, version: String) -> Client {
   )
 }
 
-/// Enable or disable root listing capability advertising.
+/// Enable or disable filesystem "roots" listing capability advertising.
 pub fn roots(client: Client, list_changed: Bool) -> Client {
   let roots =
     dict.new()
@@ -133,9 +139,11 @@ pub fn call_tool(tool_name: String) -> types.ClientMessage {
 }
 
 /// Create a response to the server with the available roots.
-pub fn list_roots(
+pub fn list_roots_result(
   id: Int,
   roots: List(#(String, String)),
+  // TODO Implement Meta Option
+  _meta: Option(Meta),
 ) -> types.ClientMessage {
   let roots =
     dict.new()
@@ -151,7 +159,7 @@ pub fn list_roots(
 }
 
 /// Request a paginated list of resources from the server.
-pub fn list_resources(cursor_value: String) -> types.ClientMessage {
+pub fn list_resources_request(cursor_value: String) -> types.ClientMessage {
   let params = case string.is_empty(cursor_value) {
     False ->
       dict.new()
@@ -161,8 +169,10 @@ pub fn list_resources(cursor_value: String) -> types.ClientMessage {
   types.Request(method: "resources/list", params: params)
 }
 
-/// Request the contents of a specific resource.
-pub fn read_resources(uri: String) -> types.ClientMessage {
+/// Sent from the client to the server, to read a specific resource URI.
+/// `https://modelcontextprotocol.io/specification/2025-11-25/schema#readresourcerequest`
+/// 
+pub fn read_resource_request(uri: String) -> types.ClientMessage {
   let params = dict.new() |> dict.insert("uri", types.JsonString(uri))
   types.Request(method: "resources/read", params: params)
 }
@@ -174,6 +184,6 @@ pub fn subscribe_resources(uri: String) -> types.ClientMessage {
 }
 
 /// Request the list of available resource templates.
-pub fn list_resources_templates() -> types.ClientMessage {
+pub fn list_resources_templates_request() -> types.ClientMessage {
   types.Request(method: "resources/templates/list", params: dict.new())
 }

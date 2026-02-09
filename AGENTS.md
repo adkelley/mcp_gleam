@@ -3,17 +3,22 @@
 This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
-
-`openai` is an SDK for the OpenAI API written in Gleam. It wraps the REST APIs with
-typed request/response structures, streaming support, and helpful utilities so
-Gleam applications can call the Responses, Files, Chat Completions, and Embeddings
-endpoints without hand-writing JSON plumbing.
+`mcp_bleam` is an SDK for the Model Context Protocol (MCP) implementation written in the Gleam programming language.  The offical MCP documentation can be found [here](https://modelcontextprotocol.io/docs/getting-started/intro)
 
 ## Best Coding Practices
 ### Documentation
 - Documentation lines for public functions and public types are prefixed with '/// '
 - Documentation lines for private functions and types are prefixed witn '//'
 - Todos are prefixed witn '// TODO '
+### Functions
+- If a function is called by just one other function, then embed that function insides the calling function using a `let` statement. For example
+```gleam
+pub fn outer_function() {
+  let helper_function = fn() {
+    ...
+  }
+}
+```
 
 
 ## Essential Commands

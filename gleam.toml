@@ -1,7 +1,7 @@
-name = "gleam_mcp"
+name = "mcp_gleam"
 version = "0.1.0"
 
-description = "Gleam types and functions for building an MCP server and :wclient"
+description = "Gleam types and functions for building an MCP server and client"
 licences = ["Apache-2.0"]
 
 repository = { type = "github", user = "adkelley", repo = "mcp_client" }

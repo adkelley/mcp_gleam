@@ -1,7 +1,7 @@
 import gleam/dict.{type Dict}
 
 /// Latest MCP protocol version this client targets by default.
-pub const latest_protocol_version = "2025-06-18"
+pub const latest_protocol_version = "2025-11-25"
 
 /// JSON-RPC version string emitted in transport messages.
 pub const json_rpc_version = "2.0"

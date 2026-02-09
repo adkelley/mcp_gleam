@@ -1,6 +1,6 @@
-# gleam_mcp
+# mcp_gleam
 
-`gleam_mcp` is an experimental Model Context Protocol (MCP) client written in
+`mcp_gleam` is an experimental Model Context Protocol (MCP) client written in
 Gleam. It focuses on offering typed constructors for the MCP handshake, common
 requests, and a thin transport abstraction for stdio-based servers.
 
