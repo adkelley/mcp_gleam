@@ -4,7 +4,7 @@
 Gleam. It focuses on offering typed constructors for the MCP handshake, common
 requests, and a thin transport abstraction for stdio-based servers.
 
-The project is a work in progress and currently targets the 2025-06-18 MCP
+The project is a work in progress and currently targets the 2025-11-25 MCP
 protocol draft. Contributions, suggestions, and bug reports are very welcome.
 
 ## Features
@@ -19,10 +19,10 @@ Add the dependency to your `gleam.toml`:
 
 ```toml
 [dependencies]
-mcp = { path = "." }
+mcp_gleam = { path = "." }
 ```
 
-Compose a minimal client and send the initial handshake:
+Compose a minimal client and send the initial handshake, using the server-everything (https://github.com/modelcontextprotocol/servers/tree/main/src/everything):
 
 ```gleam
 import mcp/client
@@ -40,10 +40,13 @@ pub fn main() {
     transport.stdio_config()
     |> transport.stdio_command("npx @modelcontextprotocol/server-everything")
 
-  let Ok(handle) = transport.connect(config)
+  let Ok(port) = transport.connect(config)
 
-  // TODO wire the transport up to your process mailbox and forward the
-  // messages created above.
+  //
+  // Do something here
+  //
+
+  let assert Ok(Nil) = transport.disconnect(port)
 }
 ```
 
